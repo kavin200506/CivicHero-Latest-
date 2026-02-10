@@ -1,0 +1,18 @@
+# Environment variables
+.env
+
+# Service Account Key (sensitive)
+serviceAccountKey.json
+service-account-key.json
+service-account-key-*.json
+
+# Node modules
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
