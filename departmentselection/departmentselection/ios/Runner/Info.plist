@@ -45,5 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>CivicHero needs camera access to capture photos of civic issues you want to report.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>CivicHero needs location access to tag issues with accurate location for better civic management.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>CivicHero needs location access to tag issues with accurate location for better civic management.</string>
 </dict>
 </plist>

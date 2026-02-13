@@ -1,0 +1,18 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // TEMPORARY: Allow public read for issues folder (for Flutter web CORS fix)
+    // TODO: Configure CORS properly and revert to authenticated-only access
+    match /issues/{allPaths=**} {
+      allow read: if true;  // Public read (TEMPORARY - for CORS fix)
+      allow write: if request.auth != null;
+    }
+    
+    // Keep other paths secure
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+
+

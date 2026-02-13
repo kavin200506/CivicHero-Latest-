@@ -4,6 +4,7 @@ import '../widgets/bottom_navigation.dart';
 import '../utils/constants.dart';
 import '../models/complaint.dart';
 import '../services/report_service.dart';
+import '../services/notification_service.dart';
 import 'capture_screen.dart';
 import 'status_tracker_screen.dart';
 import 'login_screen.dart';
@@ -306,6 +307,20 @@ class _HomeScreenState extends State<HomeScreen> {
           newStatus == 'In Progress' ||
           newStatus == 'Resolved') {
         final message = _buildStatusMessage(complaint);
+        
+        // Create notification in Firestore
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          NotificationService.createStatusChangeNotification(
+            userId: user.uid,
+            complainId: complaint.complainId,
+            issueType: complaint.issueType,
+            oldStatus: previousStatus,
+            newStatus: newStatus,
+          ).catchError((e) {
+            print('❌ Error creating notification: $e');
+          });
+        }
 
         // Ensure we show SnackBar after current frame
         WidgetsBinding.instance.addPostFrameCallback((_) {

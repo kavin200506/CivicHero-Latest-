@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
+import '../utils/permission_helper.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -37,12 +38,29 @@ class _LoginScreenState extends State<LoginScreen> {
       
       print('✅ Login successful: ${userCredential.user?.email}');
       
-      // Go straight to HomeScreen; profile screen NOT shown after login!
+      // Request camera and location permissions after login
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
+        final permissionsGranted = await PermissionHelper.requestPermissionsWithExplanation(context);
+        
+        if (!permissionsGranted) {
+          // Show warning but still allow access
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Some features may not work without permissions. You can grant them later in settings.'),
+                duration: Duration(seconds: 4),
+              ),
+            );
+          }
+        }
+        
+        // Go straight to HomeScreen; profile screen NOT shown after login!
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
       }
     } on FirebaseAuthException catch (e) {
       print('❌ Firebase Auth Error: ${e.code} - ${e.message}');

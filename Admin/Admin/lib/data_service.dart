@@ -3,14 +3,17 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
+import 'utils/clustering_helper.dart';
 
 class DataService extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   List<Map<String, dynamic>> _rawData = [];   // all individual issues
   List<Map<String, dynamic>> _filteredData = []; // data after applying filters
+  List<Cluster> _clusteredData = []; // clustered issues
   bool _isLoading = false;
   String? _error;
+  bool _clusteringEnabled = true; // Enable clustering by default
 
   // Filters
   List<String> selectedTypes = [];
@@ -23,8 +26,17 @@ class DataService extends ChangeNotifier {
 
   // Convenience getters
   List<Map<String, dynamic>> get data => _filteredData;
+  List<Cluster> get clusteredData => _clusteredData;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  bool get clusteringEnabled => _clusteringEnabled;
+  
+  // Toggle clustering
+  void toggleClustering() {
+    _clusteringEnabled = !_clusteringEnabled;
+    _applyFilters();
+    notifyListeners();
+  }
 
   // Unique values for dropdowns (from raw data)
   List<String> get allTypes => _unique('issue_type');
@@ -51,6 +63,13 @@ class DataService extends ChangeNotifier {
 
       final List<Map<String, dynamic>> allIssues = snap.docs.map((doc) {
         final d = doc.data();
+        final imageUrl = d['image_url']?.toString() ?? '';
+        
+        // Debug: Print image URL for first few issues
+        if (snap.docs.indexOf(doc) < 3) {
+          print('📸 Issue ${doc.id} - image_url: ${imageUrl.isNotEmpty ? imageUrl.substring(0, imageUrl.length > 50 ? 50 : imageUrl.length) + "..." : "EMPTY"}');
+        }
+        
         return {
           'id': doc.id, // Use document ID, not full path
           'complain_id': d['complain_id'] ?? doc.id,
@@ -68,7 +87,7 @@ class DataService extends ChangeNotifier {
           'reported_date': d['reported_date'] ?? '',
           'user_id': d['user_id'] ?? '',
           'department': d['department'] ?? '',
-          'image_url': d['image_url'] ?? '',
+          'image_url': imageUrl, // Ensure it's a string
         };
       }).toList();
 
@@ -76,6 +95,14 @@ class DataService extends ChangeNotifier {
 
       _rawData = allIssues;
       _applyFilters();   // <-- immediately apply current filters
+      
+      // Apply clustering if enabled
+      if (_clusteringEnabled) {
+        _clusteredData = ClusteringHelper.clusterIssues(_filteredData);
+        print('📊 Admin: Created ${_clusteredData.length} clusters from ${_filteredData.length} issues');
+      } else {
+        _clusteredData = [];
+      }
     } catch (e, stackTrace) {
       _error = e.toString();
       print('❌ Admin: Error fetching data: $e');
@@ -257,6 +284,14 @@ class DataService extends ChangeNotifier {
       }
       return t && d && u && l && urg && dateOK;
     }).toList();
+    
+    // Re-apply clustering after filtering
+    if (_clusteringEnabled) {
+      _clusteredData = ClusteringHelper.clusterIssues(_filteredData);
+      print('📊 Admin: Re-clustered into ${_clusteredData.length} clusters');
+    } else {
+      _clusteredData = [];
+    }
   }
 
   // ------------------- Sorting -------------------

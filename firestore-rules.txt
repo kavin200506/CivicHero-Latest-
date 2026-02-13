@@ -42,12 +42,31 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == adminId;
     }
     
+    // Notifications collection
+    match /notifications/{notificationId} {
+      // Users can create notifications (for their own userId)
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid;
+      
+      // Users can read their own notifications
+      allow read: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      
+      // Users can update/delete their own notifications
+      allow update, delete: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      
+      // Admins can read all notifications
+      allow read: if isAdmin();
+    }
+    
     // Default: deny all other access
     match /{document=**} {
       allow read, write: if false;
     }
   }
 }
+
 
 
 

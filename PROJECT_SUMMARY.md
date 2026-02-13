@@ -34,3 +34,5 @@ First AI-powered civic issue reporting platform with automatic classification, s
 **Category**: Civic Tech / Smart City Solutions  
 **Status**: Fully Functional MVP
 
+
+

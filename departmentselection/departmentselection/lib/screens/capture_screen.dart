@@ -1,10 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:geolocator/geolocator.dart';
 import '../widgets/bottom_navigation.dart';
 import '../utils/constants.dart';
 import '../services/report_service.dart';
 import '../services/ultralytics_ai_service.dart';
+import '../utils/permission_helper.dart';
 import 'confirm_report_screen.dart';
 
 class CaptureScreen extends StatefulWidget {
@@ -53,12 +56,37 @@ class _CaptureScreenState extends State<CaptureScreen>
   @override
   void initState() {
     super.initState();
-    _initializeCamera();
+    _requestPermissionsAndInitialize();
     _fadeInController = AnimationController(
       duration: const Duration(milliseconds: 800), 
       vsync: this,
     );
     _fadeInController?.forward();
+  }
+
+  /// Request permissions and initialize camera
+  Future<void> _requestPermissionsAndInitialize() async {
+    // Check if permissions are already granted
+    final permissionsGranted = await PermissionHelper.arePermissionsGranted();
+    
+    if (!permissionsGranted) {
+      // Request permissions with explanation
+      final granted = await PermissionHelper.requestPermissionsWithExplanation(context);
+      
+      if (!granted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Camera and location permissions are required to report issues.'),
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    }
+    
+    // Initialize camera after permission check
+    await _initializeCamera();
   }
 
   Future<void> _initializeCamera() async {
@@ -249,6 +277,48 @@ class _CaptureScreenState extends State<CaptureScreen>
     });
     
     try {
+      // Check location permission specifically
+      final locationPermission = await Permission.location.status;
+      final locationServiceEnabled = await Geolocator.isLocationServiceEnabled();
+      
+      if (!locationPermission.isGranted || !locationServiceEnabled) {
+        // Request location permission if not granted
+        if (!locationServiceEnabled) {
+          if (mounted) {
+            setState(() {
+              _locationError = 'Location services are disabled. Please enable them in settings.';
+              _isFetchingLocation = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please enable location services in your device settings.'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+          return;
+        }
+        
+        // Request location permission
+        final granted = await PermissionHelper.requestCameraAndLocationPermissions(context);
+        
+        if (!granted) {
+          if (mounted) {
+            setState(() {
+              _locationError = 'Location permission is required to tag issues.';
+              _isFetchingLocation = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Location permission is required. Please grant it in settings.'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+          return;
+        }
+      }
+      
       print('📍 Fetching location...');
       final loc = await ReportService.getCurrentLocation();
       
@@ -268,6 +338,17 @@ class _CaptureScreenState extends State<CaptureScreen>
           _locationError = 'Failed to fetch location: $e';
           _isFetchingLocation = false;
         });
+        
+        // If it's a permission error, show helpful message
+        if (e.toString().toLowerCase().contains('permission') || 
+            e.toString().toLowerCase().contains('denied')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Location permission denied. Please grant it in app settings.'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
       }
     }
   }

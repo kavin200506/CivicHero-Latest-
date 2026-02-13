@@ -3,6 +3,7 @@ import '../services/profile_service.dart';
 import '../models/profile.dart';
 import 'home_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../utils/permission_helper.dart';
 
 class CompleteProfileScreen extends StatefulWidget {
   const CompleteProfileScreen({super.key});
@@ -46,9 +47,29 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         gender: genderController.text.trim(),
       );
       await ProfileService.upsertProfile(newProfile);
-      Navigator.pushReplacement(
-        context, MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+      
+      // Request camera and location permissions before going to home
+      if (mounted) {
+        final permissionsGranted = await PermissionHelper.requestPermissionsWithExplanation(context);
+        
+        if (!permissionsGranted) {
+          // Show warning but still allow access
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Some features may not work without permissions. You can grant them later in settings.'),
+                duration: Duration(seconds: 4),
+              ),
+            );
+          }
+        }
+        
+        if (mounted) {
+          Navigator.pushReplacement(
+            context, MaterialPageRoute(builder: (_) => const HomeScreen()),
+          );
+        }
+      }
     } catch (e) {
       setState(() {
         errorMessage = 'Could not save profile!';
@@ -57,10 +78,29 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     setState(() => loading = false);
   }
 
-  void skipProfile() {
-    Navigator.pushReplacement(
-      context, MaterialPageRoute(builder: (_) => const HomeScreen()),
-    );
+  Future<void> skipProfile() async {
+    // Request camera and location permissions before going to home
+    if (mounted) {
+      final permissionsGranted = await PermissionHelper.requestPermissionsWithExplanation(context);
+      
+      if (!permissionsGranted) {
+        // Show warning but still allow access
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Some features may not work without permissions. You can grant them later in settings.'),
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+      
+      if (mounted) {
+        Navigator.pushReplacement(
+          context, MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      }
+    }
   }
 
   @override
