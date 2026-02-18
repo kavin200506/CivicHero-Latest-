@@ -23,6 +23,7 @@ dependencies:
   intl: ^0.18.1   # <-- Added intl for DateFormat
   flutter_map: ^7.0.0
   http: ^1.1.0  
+  image_picker: ^1.0.4
 
 dev_dependencies:
   flutter_test:

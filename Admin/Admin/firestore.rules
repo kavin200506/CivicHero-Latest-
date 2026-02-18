@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/adminusers/$(request.auth.uid));
+    }
+
+    // ---------------------------------------------------------
+    // ✅ NEW RULES FOR CAMERAS
+    // ---------------------------------------------------------
+    match /cameras/{camera} {
+      // Allow read/write for any authenticated user (for likely Admin app usage)
+      allow read, write: if request.auth != null;
+      
+      // OR if you want to be stricter and only allow admins:
+      // allow read, write: if isAdmin();
+    }
+    // ---------------------------------------------------------
+    
+    // User profiles - users can read/write their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if isAdmin(); // Admins can read all user profiles
+    }
+    
+    // Issues/Complaints collection
+    match /issues/{issueId} {
+      // Anyone authenticated can create an issue
+      allow create: if request.auth != null;
+      
+      // Users can read their own issues
+      allow read: if request.auth != null && 
+        (resource.data.user_id == request.auth.uid || isAdmin());
+      
+      // Users can read all issues (for admin dashboard)
+      // Admins can read all issues
+      allow read: if isAdmin();
+      
+      // Only admins can update/delete issues (to change status)
+      allow update, delete: if isAdmin();
+    }
+    
+    // Admin users collection
+    match /adminusers/{adminId} {
+      // Only admins can read admin users list
+      allow read: if isAdmin();
+      
+      // Only admins can write (create/update) admin users
+      allow write: if isAdmin();
+      
+      // Allow creating admin user during signup (if not exists)
+      allow create: if request.auth != null && request.auth.uid == adminId;
+    }
+    
+    // Notifications collection
+    match /notifications/{notificationId} {
+      // Users can create notifications (for their own userId)
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid;
+      
+      // Users can read their own notifications
+      allow read: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      
+      // Users can update/delete their own notifications
+      allow update, delete: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      
+      // Admins can read all notifications
+      allow read: if isAdmin();
+    }
+    
+    // Default: deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
