@@ -8,7 +8,13 @@ import '../utils/constants.dart';
 import '../services/report_service.dart';
 import '../services/ultralytics_ai_service.dart';
 import '../utils/permission_helper.dart';
+import '../widgets/voice_input_button.dart';
+import '../widgets/global_voice_button.dart';
+import '../utils/voice_command_processor.dart';
+import '../models/voice_command.dart' as local;
+import '../models/voice_command_event.dart';
 import 'confirm_report_screen.dart';
+import 'voice_command_help.dart';
 
 class CaptureScreen extends StatefulWidget {
   const CaptureScreen({super.key});
@@ -50,6 +56,10 @@ class _CaptureScreenState extends State<CaptureScreen>
   Map<String, dynamic>? _aiResult;
   String? _aiError;
 
+  // Voice Command State (stored for potential future use/debugging)
+  // String? _lastVoiceCommand;
+  // double _lastConfidence = 0.0;
+
   final _formKey = GlobalKey<FormState>();
   AnimationController? _fadeInController;
 
@@ -62,6 +72,9 @@ class _CaptureScreenState extends State<CaptureScreen>
       vsync: this,
     );
     _fadeInController?.forward();
+    
+    // Listen to global voice commands
+    VoiceCommandEvent.listen(_handleGlobalVoiceCommand);
   }
 
   /// Request permissions and initialize camera
@@ -355,9 +368,64 @@ class _CaptureScreenState extends State<CaptureScreen>
 
   @override
   void dispose() {
+    VoiceCommandEvent.removeListener(_handleGlobalVoiceCommand);
     _cameraController?.dispose();
     _fadeInController?.dispose();
     super.dispose();
+  }
+  
+  /// Handle global voice commands
+  void _handleGlobalVoiceCommand(VoiceCommand command) {
+    if (!mounted) return;
+    
+    setState(() {
+      switch (command.action) {
+        case VoiceAction.selectIssueType:
+          if (command.data != null) {
+            _issueType = command.data as String;
+            _formKey.currentState?.validate();
+          }
+          break;
+        case VoiceAction.setUrgency:
+          if (command.data != null) {
+            _urgency = command.data as String;
+            _formKey.currentState?.validate();
+          }
+          break;
+        case VoiceAction.addDescription:
+          if (command.data != null) {
+            _description = command.data as String;
+          }
+          break;
+        case VoiceAction.submitReport:
+          if (_formKey.currentState!.validate()) {
+            _navigateToConfirmScreen();
+          }
+          break;
+        case VoiceAction.cancel:
+          Navigator.pop(context);
+          break;
+        case VoiceAction.takePhoto:
+          if (_capturedImage == null) {
+            _captureImage();
+          }
+          break;
+        case VoiceAction.retakePhoto:
+          if (_capturedImage != null) {
+            setState(() {
+              _capturedImage = null;
+            });
+          }
+          break;
+        case VoiceAction.confirmPhoto:
+          if (_capturedImage != null && _firebaseImageUrl != null) {
+            // Photo already confirmed, proceed to form
+          }
+          break;
+        default:
+          break;
+      }
+    });
   }
 
   @override
@@ -372,11 +440,26 @@ class _CaptureScreenState extends State<CaptureScreen>
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline),
+            tooltip: 'Voice Commands Help',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const VoiceCommandHelpScreen(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: _capturedImage == null 
           ? _buildCameraUI() 
           : _buildReportFormUI(),
       bottomNavigationBar: const CustomBottomNavigation(currentIndex: 2),
+      floatingActionButton: const GlobalVoiceButton(),
     );
   }
 
@@ -459,6 +542,16 @@ class _CaptureScreenState extends State<CaptureScreen>
                       ),
               ),
             ),
+          ),
+        ),
+        
+        // Voice Command Button (Camera UI)
+        Positioned(
+          bottom: 160,
+          right: 20,
+          child: VoiceInputButton(
+            onVoiceCommand: _handleVoiceCommand,
+            languageCode: 'en_IN',
           ),
         ),
       ],
@@ -544,6 +637,14 @@ class _CaptureScreenState extends State<CaptureScreen>
                     _buildDescriptionField(),
 
                     const SizedBox(height: 24),
+                    
+                    // Voice Command Button (Form UI)
+                    VoiceInputButton(
+                      onVoiceCommand: _handleVoiceCommand,
+                      languageCode: 'en_IN',
+                    ),
+                    
+                    const SizedBox(height: 16),
 
                     // Submit Button
                     _buildSubmitButton(),
@@ -1044,6 +1145,117 @@ class _CaptureScreenState extends State<CaptureScreen>
         return Icons.timeline;
       default:
         return Icons.report_problem;
+    }
+  }
+
+  /// Handle voice commands from the voice input button
+  void _handleVoiceCommand(String transcript, double confidence) {
+    // Store for debugging if needed
+    // _lastVoiceCommand = transcript;
+    // _lastConfidence = confidence;
+
+    // Process the command using local processor (for backward compatibility)
+    final command = VoiceCommandProcessor.processCommand(transcript, confidence);
+    
+    // Show toast notification
+    final color = command.isValid 
+        ? (confidence >= 0.8 ? AppColors.primaryGreen : AppColors.primaryOrange)
+        : AppColors.primaryRed;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              command.isValid ? Icons.check_circle : Icons.error_outline,
+              color: Colors.white,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                command.isValid
+                    ? 'Command: ${VoiceCommandProcessor.getCommandDescription(command.type)}'
+                    : 'Command not recognized: "$transcript"',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: color,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    // Execute the command
+    if (!command.isValid) {
+      return;
+    }
+
+    switch (command.type) {
+      case local.VoiceActionType.openCamera:
+        // If we're in form view, go back to camera
+        if (_capturedImage != null) {
+          setState(() {
+            _capturedImage = null;
+          });
+        }
+        break;
+
+      case local.VoiceActionType.viewHistory:
+        Navigator.pop(context);
+        // Navigate to history screen (you may need to adjust this based on your navigation)
+        break;
+
+      case local.VoiceActionType.selectIssueType:
+        if (command.data != null) {
+          setState(() {
+            _issueType = command.data!;
+          });
+          // Trigger form validation update
+          _formKey.currentState?.validate();
+        }
+        break;
+
+      case local.VoiceActionType.setUrgency:
+        if (command.data != null) {
+          setState(() {
+            _urgency = command.data!;
+          });
+          // Trigger form validation update
+          _formKey.currentState?.validate();
+        }
+        break;
+
+      case local.VoiceActionType.submitReport:
+        // Validate and submit
+        if (_formKey.currentState!.validate()) {
+          _navigateToConfirmScreen();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please fill all required fields before submitting'),
+              backgroundColor: AppColors.primaryRed,
+            ),
+          );
+        }
+        break;
+
+      case local.VoiceActionType.cancel:
+        Navigator.pop(context);
+        break;
+
+      case local.VoiceActionType.showHelp:
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const VoiceCommandHelpScreen(),
+          ),
+        );
+        break;
+
+      case local.VoiceActionType.unknown:
+        // Already handled above
+        break;
     }
   }
 

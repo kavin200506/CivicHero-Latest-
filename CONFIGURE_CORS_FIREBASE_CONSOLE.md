@@ -88,3 +88,5 @@ Open browser DevTools → Network tab:
 If these headers are present, CORS is configured correctly!
 
 
+
+
