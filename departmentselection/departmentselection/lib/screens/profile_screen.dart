@@ -1,11 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../widgets/global_voice_button.dart';
+import '../widgets/language_selector.dart';
+import '../widgets/voice_settings_widget.dart';
+import '../models/voice_command_event.dart';
 import 'edit_profile_screen.dart';
 import 'home_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Listen to global voice commands
+    VoiceCommandEvent.listen(_handleGlobalVoiceCommand);
+  }
+
+  @override
+  void dispose() {
+    VoiceCommandEvent.removeListener(_handleGlobalVoiceCommand);
+    super.dispose();
+  }
+
+  /// Handle global voice commands
+  void _handleGlobalVoiceCommand(VoiceCommand command) {
+    if (!mounted) return;
+    
+    switch (command.action) {
+      case VoiceAction.navigateHome:
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (route) => false,
+        );
+        break;
+      case VoiceAction.logout:
+        FirebaseAuth.instance.signOut();
+        break;
+      default:
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -295,6 +337,12 @@ class ProfileScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 10),
+                          // Voice Settings
+                          const VoiceSettingsWidget(),
+                          const SizedBox(height: 16),
+                          // Language Selector
+                          const LanguageSelector(),
+                          const SizedBox(height: 20),
                         ],
                       ),
                     ),
@@ -327,6 +375,11 @@ class ProfileScreen extends StatelessWidget {
                 );
               },
             ),
+      floatingActionButton: const GlobalVoiceButton(),
     );
   }
 }
+
+// Add Language Selector to Profile Screen
+// The language selector should be added in the profile information section
+// For now, users can access it via a settings screen or we can add it directly

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/bottom_navigation.dart';
+import '../widgets/global_voice_button.dart';
 import '../utils/constants.dart';
 import '../models/notification_model.dart';
 import '../services/notification_service.dart';
@@ -138,6 +139,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         },
       ),
       bottomNavigationBar: const CustomBottomNavigation(currentIndex: 3),
+      floatingActionButton: const GlobalVoiceButton(),
     );
   }
 
