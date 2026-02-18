@@ -1,19 +1,35 @@
-# Environment variables
-.env
-
-# Service Account Key (sensitive)
-serviceAccountKey.json
-service-account-key.json
-service-account-key-*.json
-departmentselection/departmentselection/Civichero Firebase Admin SDK.json
-
-# Node modules
-node_modules/
-
-# Logs
+# Miscellaneous
+*.class
 *.log
-npm-debug.log*
-
-# OS files
+*.pyc
+*.swp
 .DS_Store
-Thumbs.db
+.atom/
+.buildlog/
+.history
+.svn/
+
+# Flutter/Dart/Pub
+.dart_tool/
+.packages
+.pub/
+build/
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+android/??_generated/
+android/app/src/main/assets/flutter_assets/
+android/app/src/main/res/drawable/flutter_assets/
+
+# Android Studio
+.idea/
+.gradle/
+*.iml
+local.properties
+
+# Secrets
+google-services.json
+GoogleService-Info.plist
+.env
+*.jks
+*.keystore
+*.key

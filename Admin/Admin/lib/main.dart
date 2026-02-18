@@ -5,6 +5,7 @@ import 'auth_service.dart';
 import 'data_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/main_layout.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,7 +14,7 @@ void main() async {
   try {
     await Firebase.initializeApp(
       options: const FirebaseOptions(
-        apiKey: "AIzaSyDGO_1c2xhgPi0-m0RU_OK9oN-pxRTPSN8",
+        apiKey: "YOUR_API_KEY_HERE", // TODO: Add your API key
         authDomain: "civicissue-aae6d.firebaseapp.com",
         projectId: "civicissue-aae6d",
         storageBucket: "civicissue-aae6d.firebasestorage.app",
@@ -50,7 +51,7 @@ class MyApp extends StatelessWidget {
         initialRoute: '/',
         routes: {
           '/': (context) => const LoginScreen(),
-          '/dashboard': (context) =>  DashboardScreen(),
+          '/dashboard': (context) => const MainLayout(),
         },
       ),
     );

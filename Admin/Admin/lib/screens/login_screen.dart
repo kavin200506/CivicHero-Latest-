@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../auth_service.dart';
 import 'dashboard_screen.dart';
 import 'sign_up_screen.dart';
+import 'main_layout.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -81,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 if (mounted) {
                                   Navigator.pushReplacement(
                                     context,
-                                    MaterialPageRoute(builder: (_) => const DashboardScreen()),
+                                    MaterialPageRoute(builder: (_) => const MainLayout()),
                                   );
                                 }
                               }

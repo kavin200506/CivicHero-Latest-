@@ -1,9 +1,13 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:typed_data'; // For web image bytes
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'utils/clustering_helper.dart';
+import 'models/camera_model.dart';
 
 class DataService extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -11,6 +15,8 @@ class DataService extends ChangeNotifier {
   List<Map<String, dynamic>> _rawData = [];   // all individual issues
   List<Map<String, dynamic>> _filteredData = []; // data after applying filters
   List<Cluster> _clusteredData = []; // clustered issues
+  List<Camera> _cameras = []; // ✅ List of cameras
+
   bool _isLoading = false;
   String? _error;
   bool _clusteringEnabled = true; // Enable clustering by default
@@ -27,6 +33,7 @@ class DataService extends ChangeNotifier {
   // Convenience getters
   List<Map<String, dynamic>> get data => _filteredData;
   List<Cluster> get clusteredData => _clusteredData;
+  List<Camera> get cameras => _cameras; // ✅ Getter for cameras
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get clusteringEnabled => _clusteringEnabled;
@@ -331,4 +338,138 @@ class DataService extends ChangeNotifier {
           .toSet()
           .toList()
           ..sort();
+
+  // ------------------- Camera Operations -------------------
+
+  Future<void> fetchCameras() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      print('📷 Admin: Fetching cameras... User: ${user?.uid ?? "Not Logged In"}');
+      
+      final snap = await _firestore.collection('cameras').get();
+      _cameras = snap.docs.map((doc) => Camera.fromMap(doc.data(), doc.id)).toList();
+      
+      // Fetch regions subcollections
+      for (var camera in _cameras) {
+         final regionSnap = await _firestore.collection('cameras').doc(camera.id).collection('regions').get();
+         camera.regions = regionSnap.docs.map((d) => RegionOfInterest.fromMap(d.data())..id = d.id).toList();
+      }
+
+      print('✅ Admin: Fetched ${_cameras.length} cameras');
+      notifyListeners();
+    } catch (e) {
+      print('❌ Admin: Error fetching cameras: $e');
+    }
+  }
+
+  Future<void> addCamera(Camera camera) async {
+    try {
+      final docRef = await _firestore.collection('cameras').add(camera.toMap());
+      camera.id = docRef.id;
+      _cameras.add(camera);
+      notifyListeners();
+    } catch (e) {
+      print('❌ Admin: Error adding camera: $e');
+      throw e;
+    }
+  }
+
+  Future<void> updateCamera(Camera camera) async {
+    try {
+      // Update main camera doc (excluding regions array)
+      await _firestore.collection('cameras').doc(camera.id).update(camera.toMap());
+      
+      final index = _cameras.indexWhere((c) => c.id == camera.id);
+      if (index != -1) {
+        // Keep the local regions but update other fields
+        final oldRegions = _cameras[index].regions;
+        _cameras[index] = camera;
+        _cameras[index].regions = oldRegions; // Restore regions as they are not in toMap() anymore
+        notifyListeners();
+      }
+    } catch (e) {
+      print('❌ Admin: Error updating camera: $e');
+      throw e;
+    }
+  }
+
+  Future<void> deleteCamera(String cameraId) async {
+    try {
+      // Delete subcollections? Firestore doesn't delete subcollections automatically.
+      // We should ideally delete ROIs first, but for now we delete the camera doc. 
+      await _firestore.collection('cameras').doc(cameraId).delete();
+      _cameras.removeWhere((c) => c.id == cameraId);
+      notifyListeners();
+    } catch (e) {
+      print('❌ Admin: Error deleting camera: $e');
+      throw e;
+    }
+  }
+
+  // ------------------- ROI Subcollection Operations -------------------
+
+  Future<void> addRegion(String cameraId, RegionOfInterest roi) async {
+    try {
+      final docRef = await _firestore
+          .collection('cameras')
+          .doc(cameraId)
+          .collection('regions')
+          .add({
+            ...roi.toMap(),
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+      
+      roi.id = docRef.id; // Correctly assign the generated ID to the local object
+      
+      // Update local state
+      final camera = _cameras.firstWhere((c) => c.id == cameraId);
+      camera.regions.add(roi);
+      notifyListeners();
+    } catch (e) {
+      print('❌ Admin: Error adding region: $e');
+      throw e;
+    }
+  }
+
+  Future<void> deleteRegion(String cameraId, String regionId) async {
+    try {
+      await _firestore
+          .collection('cameras')
+          .doc(cameraId)
+          .collection('regions')
+          .doc(regionId)
+          .delete();
+
+       // Update local state
+      final camera = _cameras.firstWhere((c) => c.id == cameraId);
+      camera.regions.removeWhere((r) => r.id == regionId);
+      notifyListeners();
+    } catch (e) {
+      print('❌ Admin: Error deleting region: $e');
+      throw e;
+    }
+  }
+  
+  // ------------------- Image Upload -------------------
+
+  Future<String> uploadCameraSnapshot(Uint8List fileBytes, String fileName) async {
+    try {
+      print('📤 Admin: Uploading snapshot $fileName...');
+      final ref = FirebaseStorage.instance.ref().child('camera_snapshots/$fileName');
+      
+      final metadata = SettableMetadata(
+        contentType: 'image/jpeg', 
+      );
+
+      final task = await ref.putData(fileBytes, metadata);
+      final downloadUrl = await task.ref.getDownloadURL();
+      
+      print('✅ Admin: Upload successful: $downloadUrl');
+      return downloadUrl;
+    } catch (e) {
+      print('❌ Admin: Upload failed: $e');
+      throw e;
+    }
+  }
 }
