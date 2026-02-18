@@ -29,20 +29,30 @@ dependencies:
   path_provider:
   http: ^1.1.0
   
+  # Speech recognition packages
+  speech_to_text: ^7.0.0
+  flutter_tts: ^3.8.5
+  flutter_dotenv: ^5.1.0
+  audio_waveforms: ^1.0.5
+  
+  # Settings storage
+  shared_preferences: ^2.2.2
+  
   # ✅ NO TFLITE - Using API calls instead
 
 dev_dependencies:
   flutter_launcher_icons: "^0.13.1"
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
 flutter_icons:
   android: true
   ios: true
   image_path: "assets/icon/app_logo.png"
-  flutter_test:
-    sdk: flutter
-  flutter_lints: ^3.0.0
 
 flutter:
   uses-material-design: true
   
   assets:
-    - assets/images/
+    - .env

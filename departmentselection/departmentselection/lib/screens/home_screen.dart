@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/bottom_navigation.dart';
+import '../widgets/global_voice_button.dart';
 import '../utils/constants.dart';
 import '../models/complaint.dart';
+import '../models/voice_command_event.dart';
 import '../services/report_service.dart';
 import '../services/notification_service.dart';
 import 'capture_screen.dart';
 import 'status_tracker_screen.dart';
 import 'login_screen.dart';
+import 'history_screen.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,6 +24,51 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Keep track of last known status for each complaint so we can
   /// detect status changes coming from the admin dashboard.
   final Map<String, String> _lastStatuses = {};
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen to global voice commands
+    VoiceCommandEvent.listen(_handleGlobalVoiceCommand);
+    
+  }
+
+  @override
+  void dispose() {
+    VoiceCommandEvent.removeListener(_handleGlobalVoiceCommand);
+    super.dispose();
+  }
+
+  /// Handle global voice commands
+  void _handleGlobalVoiceCommand(VoiceCommand command) {
+    if (!mounted) return;
+    
+    switch (command.action) {
+      case VoiceAction.navigateCamera:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const CaptureScreen()),
+        );
+        break;
+      case VoiceAction.navigateReports:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const HistoryScreen()),
+        );
+        break;
+      case VoiceAction.navigateProfile:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ProfileScreen()),
+        );
+        break;
+      case VoiceAction.refresh:
+        setState(() {}); // Trigger rebuild
+        break;
+      default:
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -279,6 +328,7 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
       bottomNavigationBar: const CustomBottomNavigation(currentIndex: 0),
+      floatingActionButton: const GlobalVoiceButton(),
     );
   }
 

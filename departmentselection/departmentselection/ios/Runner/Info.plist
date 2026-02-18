@@ -51,5 +51,7 @@
 	<string>CivicHero needs location access to tag issues with accurate location for better civic management.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>CivicHero needs location access to tag issues with accurate location for better civic management.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>CivicHero needs microphone access to enable voice commands for hands-free issue reporting.</string>
 </dict>
 </plist>

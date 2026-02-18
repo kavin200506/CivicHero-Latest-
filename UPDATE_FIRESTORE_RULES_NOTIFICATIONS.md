@@ -122,3 +122,5 @@ service cloud.firestore {
 ⚠️ **Warning**: This allows any authenticated user to read/write all data. Only use for development/testing!
 
 
+
+

@@ -80,3 +80,5 @@ gcloud config set project civicissue-aae6d
 Then revert Storage rules to require authentication.
 
 
+
+

@@ -1,13 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/admin_clear_data_screen.dart';
+import 'screens/capture_screen.dart';
+import 'screens/history_screen.dart';
+import 'screens/profile_screen.dart';
+import 'screens/voice_command_help.dart';
+import 'services/voice_controller_service.dart';
 import 'utils/constants.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Load environment variables
+  try {
+    await dotenv.load(fileName: ".env");
+    print('✅ Environment variables loaded');
+  } catch (e) {
+    print('⚠️ Could not load .env file: $e');
+    print('   Continuing without .env (voice commands may not work)');
+  }
   
   // Initialize Firebase with error handling
   try {
@@ -16,6 +31,14 @@ void main() async {
   } catch (e) {
     print('❌ Firebase initialization failed: $e');
     // Show error dialog or handle gracefully
+  }
+  
+  // Initialize Voice Controller
+  try {
+    await VoiceControllerService().initialize();
+    print('✅ Voice Controller initialized');
+  } catch (e) {
+    print('⚠️ Voice Controller initialization failed: $e');
   }
   
   runApp(const DepartmentSelectionApp());
@@ -82,6 +105,11 @@ class DepartmentSelectionApp extends StatelessWidget {
       routes: {
         // Temporary route for clearing data - REMOVE AFTER USE!
         '/clear-data': (context) => const AdminClearDataScreen(),
+        // Voice control routes
+        '/capture': (context) => const CaptureScreen(),
+        '/history': (context) => const HistoryScreen(),
+        '/profile': (context) => const ProfileScreen(),
+        '/voice-help': (context) => const VoiceCommandHelpScreen(),
       },
       debugShowCheckedModeBanner: false,
     );

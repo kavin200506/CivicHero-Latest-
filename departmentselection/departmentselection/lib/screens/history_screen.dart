@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/bottom_navigation.dart';
+import '../widgets/global_voice_button.dart';
 import '../utils/constants.dart';
 import '../models/complaint.dart';
+import '../models/voice_command_event.dart';
 import '../services/report_service.dart'; // needed!
 import 'status_tracker_screen.dart';
 
@@ -15,6 +17,57 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   String _selectedFilter = 'All';
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen to global voice commands
+    VoiceCommandEvent.listen(_handleGlobalVoiceCommand);
+  }
+
+  @override
+  void dispose() {
+    VoiceCommandEvent.removeListener(_handleGlobalVoiceCommand);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// Handle global voice commands
+  void _handleGlobalVoiceCommand(VoiceCommand command) {
+    if (!mounted) return;
+    
+    setState(() {
+      switch (command.action) {
+        case VoiceAction.filterReports:
+          if (command.data != null) {
+            final filter = command.data as String;
+            if (filter == 'all') {
+              _selectedFilter = 'All';
+            } else if (filter == 'reported') {
+              _selectedFilter = 'Assigned';
+            } else if (filter == 'in_progress') {
+              _selectedFilter = 'In Progress';
+            } else if (filter == 'resolved') {
+              _selectedFilter = 'Resolved';
+            }
+          }
+          break;
+        case VoiceAction.scrollDown:
+          _scrollController.animateTo(
+            _scrollController.offset + 500,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+          break;
+        case VoiceAction.refresh:
+          setState(() {}); // Trigger rebuild
+          break;
+        default:
+          break;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -172,6 +225,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               ),
                             )
                           : ListView.builder(
+                              controller: _scrollController,
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               itemCount: filteredComplaints.length,
                               itemBuilder: (context, index) {
@@ -184,6 +238,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               },
             ),
       bottomNavigationBar: const CustomBottomNavigation(currentIndex: 1),
+      floatingActionButton: const GlobalVoiceButton(),
     );
   }
 
