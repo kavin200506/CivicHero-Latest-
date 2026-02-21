@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'home_screen.dart';
+import 'logged_in_wrapper.dart';
 import 'register_screen.dart';
 import '../utils/permission_helper.dart';
 
@@ -54,11 +54,10 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         }
         
-        // Go straight to HomeScreen; profile screen NOT shown after login!
         if (mounted) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
+            MaterialPageRoute(builder: (context) => const LoggedInWrapper()),
           );
         }
       }

@@ -16,7 +16,8 @@ class ProfileService {
     return Profile.fromMap(doc.data()!);
   }
 
-  /// Checks if current user's profile is complete (all fields validated).
+  /// Checks if current user's profile is complete (required fields only).
+  /// Department/role is not required.
   static Future<bool> isProfileComplete() async {
     final profile = await fetchProfile();
     if (profile == null) return false;
@@ -24,10 +25,8 @@ class ProfileService {
     return profile.fullName.trim().isNotEmpty &&
         profile.email.trim().isNotEmpty &&
         profile.phoneNumber.trim().isNotEmpty &&
-        profile.department.trim().isNotEmpty &&
         profile.address.trim().isNotEmpty &&
         profile.gender.trim().isNotEmpty;
-        // add further validation if needed
   }
 
   /// Creates or updates the user's profile using the Profile object.

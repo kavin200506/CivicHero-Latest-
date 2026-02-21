@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/complaint.dart';
+import 'profile_service.dart';
 
 class ReportService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -86,7 +87,16 @@ class ReportService {
     // 3. Upload photo
     final imageUrl = await uploadPhoto(imageFile, complainId);
 
-    // 4. Create Complaint model
+    // 4. Get reporter name and phone from user profile
+    String reporterName = '';
+    String reporterPhone = '';
+    final profile = await ProfileService.fetchProfile();
+    if (profile != null) {
+      reporterName = profile.fullName.trim();
+      reporterPhone = profile.phoneNumber.trim();
+    }
+
+    // 5. Create Complaint model
     final complaint = Complaint(
       complainId: complainId,
       issueType: issueType,
@@ -100,9 +110,11 @@ class ReportService {
       reportedDate: DateTime.now(),
       imageUrl: imageUrl,
       userId: user.uid,
+      reporterName: reporterName,
+      reporterPhone: reporterPhone,
     );
 
-    // 5. Save to Firestore
+    // 6. Save to Firestore
     await _firestore.collection('issues').doc(complainId).set(complaint.toMap());
   }
 

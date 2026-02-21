@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/logged_in_wrapper.dart';
 import 'screens/admin_clear_data_screen.dart';
 import 'screens/capture_screen.dart';
 import 'screens/history_screen.dart';
@@ -93,9 +94,9 @@ class DepartmentSelectionApp extends StatelessWidget {
             );
           }
           
-          // If user is logged in, show HomeScreen (persistent login)
+          // If user is logged in, show wrapper (profile mandatory then home)
           if (snapshot.hasData && snapshot.data != null) {
-            return const HomeScreen();
+            return const LoggedInWrapper();
           }
           
           // Otherwise, show LoginScreen

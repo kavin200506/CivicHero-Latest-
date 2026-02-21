@@ -139,7 +139,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   {'label': 'Full Name', 'key': 'fullName', 'icon': Icons.person},
                   {'label': 'Email', 'value': email, 'icon': Icons.email},
                   {'label': 'Phone Number', 'key': 'phonenumber', 'icon': Icons.phone},
-                  {'label': 'Department/Role', 'key': 'role', 'icon': Icons.work},
                   {'label': 'Address', 'key': 'address', 'icon': Icons.house},
                   {'label': 'Date of Birth', 'key': 'dob', 'icon': Icons.cake},
                   {'label': 'Gender', 'key': 'gender', 'icon': Icons.wc},

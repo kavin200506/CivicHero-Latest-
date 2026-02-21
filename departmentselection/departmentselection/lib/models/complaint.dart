@@ -11,6 +11,8 @@ class Complaint {
   final DateTime reportedDate;  // When issue was filed
   final String imageUrl;        // Firebase Storage download URL
   final String userId;          // ID of user who filed it
+  final String reporterName;    // Name of person who reported the issue
+  final String reporterPhone;   // Phone number of reporter
 
   Complaint({
     required this.complainId,
@@ -25,6 +27,8 @@ class Complaint {
     required this.reportedDate,
     required this.imageUrl,
     required this.userId,
+    this.reporterName = '',
+    this.reporterPhone = '',
   });
 
   // Convert model to a Firestore map
@@ -42,6 +46,8 @@ class Complaint {
       'reported_date': reportedDate.toIso8601String(),
       'image_url': imageUrl,
       'user_id': userId,
+      'reporter_name': reporterName,
+      'reporter_phone': reporterPhone,
     };
   }
 
@@ -60,6 +66,8 @@ class Complaint {
       reportedDate: DateTime.tryParse(map['reported_date'] ?? '') ?? DateTime.now(),
       imageUrl: map['image_url'] ?? '',
       userId: map['user_id'] ?? '',
+      reporterName: map['reporter_name'] ?? '',
+      reporterPhone: map['reporter_phone'] ?? '',
     );
   }
 }
