@@ -40,8 +40,12 @@ const twilioClient = twilio(
 );
 
 // Initialize Nodemailer for Gmail
+// Use port 587 (STARTTLS) - many networks block 465; 587 is more likely to work
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false,
+  requireTLS: true,
   auth: {
     user: process.env.GMAIL_USERNAME,
     pass: process.env.GMAIL_APP_PASSWORD
@@ -126,6 +130,10 @@ async function sendEmail(email, subject, body) {
     return { success: true, messageId: result.messageId };
   } catch (error) {
     console.error(`❌ Email failed to ${email}:`, error.message);
+    if (error.code === 'ECONNREFUSED' || error.message.includes('ECONNREFUSED')) {
+      console.log('   💡 Your network may be blocking SMTP (ports 465/587). SMS still works.');
+      console.log('   💡 To run without email errors, set EMAIL_ENABLED=false in .env');
+    }
     return { success: false, error: error.message };
   }
 }

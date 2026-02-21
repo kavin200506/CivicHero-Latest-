@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../auth_service.dart';
-import 'dashboard_screen.dart';
 import 'sign_up_screen.dart';
 import 'main_layout.dart';
 
@@ -15,6 +14,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _rememberMe = true; // Default to true for persistent login
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +55,24 @@ class _LoginScreenState extends State<LoginScreen> {
                       prefixIcon: Icon(Icons.lock),
                     ),
                     obscureText: true,
+                  ),
+                  const SizedBox(height: 16),
+                  // Remember Me checkbox
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _rememberMe,
+                        onChanged: (value) {
+                          setState(() {
+                            _rememberMe = value ?? true;
+                          });
+                        },
+                      ),
+                      const Text(
+                        'Remember Me',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 24),
                   SizedBox(

@@ -22,6 +22,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _showHeatmap = true; // ✅ new state to control heatmap visibility
   String _selectedStatusTab = 'All'; // Selected status tab: All, Reported, Assigned, In Progress, Resolved
   String _priorityAlgorithm = 'Smart Priority'; // Priority algorithm: Smart Priority, Recently Reported, Report Count, Risk Level
+  final MapController _mapController = MapController(); // Map controller for zooming to locations
+  final GlobalKey _mapKey = GlobalKey(); // Key to maintain map state
 
   @override
   void initState() {
@@ -337,48 +339,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // ===== Heatmap (conditionally rendered) =====
-                      if (_showHeatmap) ...[
-                        SizedBox(
-                          height: 300,
-                          child: FlutterMap(
-                            options: MapOptions(
-                              initialCenter: LatLng(20.5937, 78.9629),
-                              initialZoom: 5,
-                            ),
-                            children: [
-                              TileLayer(
-                                urlTemplate:
-                                    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                                subdomains: const ['a', 'b', 'c'],
-                              ),
-                              MarkerLayer(
-                                markers: filteredIssues
-                                    .map((issue) => Marker(
-                                          point: LatLng(
-                                            (issue['latitude'] as double?) ??
-                                                0,
-                                            (issue['longitude'] as double?) ??
-                                                0,
-                                          ),
-                                          width: 20,
-                                          height: 20,
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              color: _urgencyColor(
-                                                      issue['urgency'])
-                                                  .withOpacity(0.6),
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                        ))
-                                    .toList(),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
+                      // ===== Heatmap (always rendered but conditionally visible) =====
+                      // Keep map in widget tree to maintain controller connection
+                      SizedBox(
+                        height: _showHeatmap ? 300 : 0,
+                        key: _mapKey,
+                        child: _showHeatmap
+                            ? FlutterMap(
+                                mapController: _mapController,
+                                options: MapOptions(
+                                  initialCenter: LatLng(20.5937, 78.9629),
+                                  initialZoom: 5,
+                                ),
+                                children: [
+                                  TileLayer(
+                                    urlTemplate:
+                                        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                                    subdomains: const ['a', 'b', 'c'],
+                                  ),
+                                  MarkerLayer(
+                                    markers: filteredIssues
+                                        .map((issue) => Marker(
+                                              point: LatLng(
+                                                (issue['latitude'] as double?) ??
+                                                    0,
+                                                (issue['longitude'] as double?) ??
+                                                    0,
+                                              ),
+                                              width: 20,
+                                              height: 20,
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: _urgencyColor(
+                                                          issue['urgency'])
+                                                      .withOpacity(0.6),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                              ),
+                                            ))
+                                        .toList(),
+                                  ),
+                                ],
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                      if (_showHeatmap) const SizedBox(height: 16),
 
                       // ===== Status Tabs =====
                       Container(
@@ -958,8 +963,90 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
         ],
+        const SizedBox(height: 4),
+        // Show in Map button
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              final lat = (issue['latitude'] as double?) ?? 0.0;
+              final lng = (issue['longitude'] as double?) ?? 0.0;
+              if (lat != 0.0 || lng != 0.0) {
+                // Show heatmap first if hidden
+                if (!_showHeatmap) {
+                  setState(() => _showHeatmap = true);
+                  // Wait longer for map to fully initialize before zooming
+                  Future.delayed(const Duration(milliseconds: 800), () {
+                    _zoomToLocation(lat, lng);
+                  });
+                } else {
+                  // Even if map is visible, wait a bit to ensure it's ready
+                  Future.delayed(const Duration(milliseconds: 100), () {
+                    _zoomToLocation(lat, lng);
+                  });
+                }
+                // Show success message
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Map zoomed to: ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}'),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Location not available for this issue'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+            icon: const Icon(Icons.map, size: 16),
+            label: const Text('Show in Map'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+            ),
+          ),
+        ),
       ],
     );
+  }
+
+  // Zoom map to specific location
+  void _zoomToLocation(double lat, double lng) {
+    // Validate coordinates
+    if (lat == 0.0 && lng == 0.0) {
+      print('⚠️ Invalid coordinates: lat=$lat, lng=$lng');
+      return;
+    }
+    
+    print('🗺️ Zooming to location: lat=$lat, lng=$lng');
+    
+    // Perform the zoom operation with multiple retries
+    _performZoomWithRetry(lat, lng, retryCount: 0);
+  }
+  
+  // Perform zoom with retry logic
+  void _performZoomWithRetry(double lat, double lng, {int retryCount = 0}) {
+    if (retryCount > 5) {
+      print('❌ Max retries reached, giving up');
+      return;
+    }
+    
+    try {
+      // Use move with zoom level 15 (street level)
+      _mapController.move(LatLng(lat, lng), 15.0);
+      print('✅ Map moved to: lat=$lat, lng=$lng, zoom=15.0 (attempt ${retryCount + 1})');
+    } catch (e) {
+      print('❌ Error zooming map (attempt ${retryCount + 1}): $e');
+      // Retry after a delay with exponential backoff
+      if (retryCount < 5) {
+        final delayMs = 200 * (retryCount + 1);
+        Future.delayed(Duration(milliseconds: delayMs), () {
+          _performZoomWithRetry(lat, lng, retryCount: retryCount + 1);
+        });
+      }
+    }
   }
 
   Widget _buildCountCard(String title, int count, Color bgColor) {
@@ -1245,22 +1332,64 @@ class _DashboardScreenState extends State<DashboardScreen> {
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            DropdownButton<String>(
-              value: cluster.mostCommonStatus,
-              underline: const SizedBox(),
-              items: const [
-                DropdownMenuItem(value: 'Reported', child: Text('Reported')),
-                DropdownMenuItem(value: 'Assigned', child: Text('Assigned')),
-                DropdownMenuItem(value: 'In Progress', child: Text('In Progress')),
-                DropdownMenuItem(value: 'Resolved', child: Text('Resolved')),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.map, size: 20),
+                  tooltip: 'Show in Map',
+                  onPressed: () {
+                    // Use the center of the cluster
+                    final lat = cluster.centerLat;
+                    final lng = cluster.centerLng;
+                    if (lat != 0.0 || lng != 0.0) {
+                      // Show heatmap first if hidden
+                      if (!_showHeatmap) {
+                        setState(() => _showHeatmap = true);
+                        // Wait longer for map to fully initialize before zooming
+                        Future.delayed(const Duration(milliseconds: 800), () {
+                          _zoomToLocation(lat, lng);
+                        });
+                      } else {
+                        // Even if map is visible, wait a bit to ensure it's ready
+                        Future.delayed(const Duration(milliseconds: 100), () {
+                          _zoomToLocation(lat, lng);
+                        });
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Map zoomed to cluster: ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}'),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Location not available for this cluster'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                DropdownButton<String>(
+                  value: cluster.mostCommonStatus,
+                  underline: const SizedBox(),
+                  items: const [
+                    DropdownMenuItem(value: 'Reported', child: Text('Reported')),
+                    DropdownMenuItem(value: 'Assigned', child: Text('Assigned')),
+                    DropdownMenuItem(value: 'In Progress', child: Text('In Progress')),
+                    DropdownMenuItem(value: 'Resolved', child: Text('Resolved')),
+                  ],
+                  onChanged: (val) async {
+                    if (val == null) return;
+                    // Update all issues in cluster
+                    for (final issue in cluster.issues) {
+                      await ds.updateIssueStatus(issue['id'], val);
+                    }
+                  },
+                ),
               ],
-              onChanged: (val) async {
-                if (val == null) return;
-                // Update all issues in cluster
-                for (final issue in cluster.issues) {
-                  await ds.updateIssueStatus(issue['id'], val);
-                }
-              },
             ),
           ],
         ),
@@ -1303,6 +1432,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ...cluster.issues.asMap().entries.map((entry) {
                   final index = entry.key;
                   final issue = entry.value;
+                  final userId = issue['user_id']?.toString() ?? 'Unknown';
+                  final userIdDisplay = userId.length > 8 ? userId.substring(0, 8) + '...' : userId;
                   return Card(
                     margin: const EdgeInsets.symmetric(vertical: 4),
                     color: Colors.grey.shade50,
@@ -1311,11 +1442,70 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         backgroundColor: _urgencyColor(issue['urgency']),
                         child: Text('${index + 1}'),
                       ),
-                      title: Text('Reported by: ${issue['user_id']?.toString().substring(0, 8) ?? 'Unknown'}...'),
+                      title: Text('Reported by: $userIdDisplay'),
                       subtitle: Text(
                         'Status: ${issue['status']} | Urgency: ${issue['urgency']}',
                       ),
-                      trailing: DropdownButton<String>(
+                      onTap: () {
+                        final lat = (issue['latitude'] as double?) ?? 0.0;
+                        final lng = (issue['longitude'] as double?) ?? 0.0;
+                        if (lat != 0.0 || lng != 0.0) {
+                          // Show heatmap first if hidden
+                          if (!_showHeatmap) {
+                            setState(() => _showHeatmap = true);
+                            // Wait for map to render before zooming
+                            Future.delayed(const Duration(milliseconds: 300), () {
+                              _zoomToLocation(lat, lng);
+                            });
+                          } else {
+                            _zoomToLocation(lat, lng);
+                          }
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Location not available for this issue'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.map, size: 18),
+                            tooltip: 'Show in Map',
+                            onPressed: () {
+                              final lat = (issue['latitude'] as double?) ?? 0.0;
+                              final lng = (issue['longitude'] as double?) ?? 0.0;
+                              if (lat != 0.0 || lng != 0.0) {
+                                // Show heatmap first if hidden
+                                if (!_showHeatmap) {
+                                  setState(() => _showHeatmap = true);
+                                  // Wait for map to render before zooming
+                                  Future.delayed(const Duration(milliseconds: 300), () {
+                                    _zoomToLocation(lat, lng);
+                                  });
+                                } else {
+                                  _zoomToLocation(lat, lng);
+                                }
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Map zoomed to: ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}'),
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Location not available for this issue'),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                          DropdownButton<String>(
                         value: issue['status'],
                         underline: const SizedBox(),
                         items: const [
@@ -1324,10 +1514,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           DropdownMenuItem(value: 'In Progress', child: Text('In Progress')),
                           DropdownMenuItem(value: 'Resolved', child: Text('Resolved')),
                         ],
-                        onChanged: (val) async {
-                          if (val == null) return;
-                          await ds.updateIssueStatus(issue['id'], val);
-                        },
+                            onChanged: (val) async {
+                              if (val == null) return;
+                              await ds.updateIssueStatus(issue['id'], val);
+                            },
+                          ),
+                        ],
                       ),
                     ),
                   );

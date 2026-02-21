@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'auth_service.dart';
 import 'data_service.dart';
 import 'screens/login_screen.dart';
-import 'screens/dashboard_screen.dart';
 import 'screens/main_layout.dart';
 
 void main() async {
@@ -14,7 +13,7 @@ void main() async {
   try {
     await Firebase.initializeApp(
       options: const FirebaseOptions(
-        apiKey: "YOUR_API_KEY_HERE", // TODO: Add your API key
+        apiKey: "AIzaSyDGO_1c2xhgPi0-m0RU_OK9oN-pxRTPSN8", // Firebase API key for civicissue-aae6d
         authDomain: "civicissue-aae6d.firebaseapp.com",
         projectId: "civicissue-aae6d",
         storageBucket: "civicissue-aae6d.firebasestorage.app",
@@ -48,9 +47,26 @@ class MyApp extends StatelessWidget {
           primarySwatch: Colors.blue,
           useMaterial3: true,
         ),
-        initialRoute: '/',
+        home: Consumer<AuthService>(
+          builder: (context, authService, _) {
+            // Show loading while checking auth state
+            if (!authService.isInitialized || authService.isLoading) {
+              return const Scaffold(
+                body: Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
+            
+            // If user is logged in, show dashboard; otherwise show login
+            if (authService.isLoggedIn) {
+              return const MainLayout();
+            } else {
+              return const LoginScreen();
+            }
+          },
+        ),
         routes: {
-          '/': (context) => const LoginScreen(),
           '/dashboard': (context) => const MainLayout(),
         },
       ),
