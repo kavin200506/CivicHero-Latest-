@@ -938,18 +938,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const Icon(Icons.business, size: 16, color: Colors.grey),
             const SizedBox(width: 4),
             Text('Dept: $department', style: const TextStyle(fontSize: 12)),
-            const SizedBox(width: 12),
-            const Icon(Icons.person, size: 16, color: Colors.grey),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                'User: ${userId.length > 8 ? userId.substring(0, 8) + '...' : userId}',
-                style: const TextStyle(fontSize: 12),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
           ],
         ),
+        if ((issue['reporter_name'] ?? '').toString().trim().isNotEmpty ||
+            (issue['reporter_phone'] ?? '').toString().trim().isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.person, size: 16, color: Colors.grey),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if ((issue['reporter_name'] ?? '').toString().trim().isNotEmpty)
+                      Text(
+                        'Reporter: ${issue['reporter_name']}',
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    if ((issue['reporter_phone'] ?? '').toString().trim().isNotEmpty)
+                      Text(
+                        'Phone: ${issue['reporter_phone']}',
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ] else ...[
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              const Icon(Icons.person, size: 16, color: Colors.grey),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  'User: ${userId.length > 8 ? userId.substring(0, 8) + '...' : userId}',
+                  style: const TextStyle(fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
         if (complainId.isNotEmpty) ...[
           const SizedBox(height: 2),
           Row(
@@ -1432,8 +1467,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ...cluster.issues.asMap().entries.map((entry) {
                   final index = entry.key;
                   final issue = entry.value;
+                  final reporterName = (issue['reporter_name'] ?? '').toString().trim();
+                  final reporterPhone = (issue['reporter_phone'] ?? '').toString().trim();
                   final userId = issue['user_id']?.toString() ?? 'Unknown';
-                  final userIdDisplay = userId.length > 8 ? userId.substring(0, 8) + '...' : userId;
+                  final reportedByDisplay = reporterName.isNotEmpty
+                      ? (reporterPhone.isNotEmpty ? '$reporterName · $reporterPhone' : reporterName)
+                      : (userId.length > 8 ? userId.substring(0, 8) + '...' : userId);
                   return Card(
                     margin: const EdgeInsets.symmetric(vertical: 4),
                     color: Colors.grey.shade50,
@@ -1442,7 +1481,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         backgroundColor: _urgencyColor(issue['urgency']),
                         child: Text('${index + 1}'),
                       ),
-                      title: Text('Reported by: $userIdDisplay'),
+                      title: Text('Reported by: $reportedByDisplay'),
                       subtitle: Text(
                         'Status: ${issue['status']} | Urgency: ${issue['urgency']}',
                       ),

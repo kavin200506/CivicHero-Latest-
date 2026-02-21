@@ -95,8 +95,85 @@ class DataService extends ChangeNotifier {
           'user_id': d['user_id'] ?? '',
           'department': d['department'] ?? '',
           'image_url': imageUrl, // Ensure it's a string
+          'reporter_name': d['reporter_name'] ?? '',
+          'reporter_phone': d['reporter_phone'] ?? '',
+          'camera_id': d['camera_id'] ?? '',
         };
       }).toList();
+
+      // 1) Enrich with reporter name & phone from users collection when missing on issue
+      final userIdsToFetch = <String>{};
+      for (final issue in allIssues) {
+        final uid = (issue['user_id'] ?? '').toString().trim();
+        final hasName = ((issue['reporter_name'] ?? '').toString().trim().isNotEmpty);
+        if (uid.isNotEmpty && !hasName) userIdsToFetch.add(uid);
+      }
+      if (userIdsToFetch.isNotEmpty) {
+        final userSnaps = await Future.wait(
+          userIdsToFetch.map((uid) => _firestore.collection('users').doc(uid).get()),
+        );
+        final userMap = <String, Map<String, dynamic>>{};
+        for (var i = 0; i < userIdsToFetch.length; i++) {
+          final uid = userIdsToFetch.elementAt(i);
+          final snap = userSnaps[i];
+          if (snap.exists && snap.data() != null) {
+            userMap[uid] = snap.data()!;
+          }
+        }
+        for (final issue in allIssues) {
+          final uid = (issue['user_id'] ?? '').toString().trim();
+          final hasName = ((issue['reporter_name'] ?? '').toString().trim().isNotEmpty);
+          if (uid.isEmpty || hasName) continue;
+          final userData = userMap[uid];
+          if (userData != null) {
+            issue['reporter_name'] = userData['fullName']?.toString().trim() ?? '';
+            issue['reporter_phone'] = userData['phonenumber']?.toString().trim() ?? '';
+          }
+        }
+        print('✅ Admin: Enriched ${userIdsToFetch.length} issues with reporter info from users collection');
+      }
+
+      // 2) If still no reporter name, try camera_id → fetch camera name (issue from camera)
+      final cameraIdsToFetch = <String>{};
+      for (final issue in allIssues) {
+        final hasName = ((issue['reporter_name'] ?? '').toString().trim().isNotEmpty);
+        final cameraId = (issue['camera_id'] ?? '').toString().trim();
+        if (!hasName && cameraId.isNotEmpty) cameraIdsToFetch.add(cameraId);
+      }
+      if (cameraIdsToFetch.isNotEmpty) {
+        final cameraSnaps = await Future.wait(
+          cameraIdsToFetch.map((id) => _firestore.collection('cameras').doc(id).get()),
+        );
+        final cameraNameMap = <String, String>{};
+        for (var i = 0; i < cameraIdsToFetch.length; i++) {
+          final cid = cameraIdsToFetch.elementAt(i);
+          final snap = cameraSnaps[i];
+          if (snap.exists && snap.data() != null) {
+            final name = snap.data()!['name']?.toString().trim() ?? '';
+            if (name.isNotEmpty) cameraNameMap[cid] = name;
+          }
+        }
+        for (final issue in allIssues) {
+          final hasName = ((issue['reporter_name'] ?? '').toString().trim().isNotEmpty);
+          if (hasName) continue;
+          final cameraId = (issue['camera_id'] ?? '').toString().trim();
+          final cameraName = cameraNameMap[cameraId];
+          if (cameraName != null && cameraName.isNotEmpty) {
+            issue['reporter_name'] = cameraName;
+            issue['reporter_phone'] = ''; // Camera has no phone
+          }
+        }
+        print('✅ Admin: Enriched ${cameraIdsToFetch.length} issues with camera name');
+      }
+
+      // 3) If still no reporter name (not a user, not a camera), show as Unknown
+      for (final issue in allIssues) {
+        final hasName = ((issue['reporter_name'] ?? '').toString().trim().isNotEmpty);
+        if (!hasName) {
+          issue['reporter_name'] = 'Unknown';
+          issue['reporter_phone'] = '';
+        }
+      }
 
       print('✅ Admin: Processed ${allIssues.length} issues');
 
