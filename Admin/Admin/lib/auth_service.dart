@@ -9,8 +9,61 @@ class AuthService extends ChangeNotifier {
 
   User? user;
   bool isLoading = false;
+  bool isInitialized = false; // Track if auth state has been checked
 
-  String? currentDepartment; // store logged-in admin’s department
+  String? currentDepartment; // store logged-in admin's department
+
+  // Constructor - Check for existing session
+  AuthService() {
+    _checkAuthState();
+  }
+
+  // Check for existing authentication state (persistent login)
+  Future<void> _checkAuthState() async {
+    try {
+      isLoading = true;
+      notifyListeners();
+
+      // Check current user (Firebase Auth persists sessions automatically)
+      User? firebaseUser = _auth.currentUser;
+      
+      if (firebaseUser != null) {
+        // User is logged in, verify they're an admin
+        try {
+          final doc = await _firestore.collection('adminusers').doc(firebaseUser.uid).get();
+          if (doc.exists) {
+            user = firebaseUser;
+            final data = doc.data()!;
+            currentDepartment = data['department'] ?? '';
+            debugPrint('✅ Admin: Auto-logged in as ${user?.email}');
+          } else {
+            // Not an admin user, sign them out
+            await _auth.signOut();
+            user = null;
+            currentDepartment = null;
+            debugPrint('⚠️ User is not an admin, signed out');
+          }
+        } catch (e) {
+          debugPrint('❌ Error checking admin status: $e');
+          user = null;
+          currentDepartment = null;
+        }
+      } else {
+        user = null;
+        currentDepartment = null;
+        debugPrint('ℹ️ No existing session found');
+      }
+      
+      isLoading = false;
+      isInitialized = true;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Error checking auth state: $e');
+      isLoading = false;
+      isInitialized = true;
+      notifyListeners();
+    }
+  }
 
   // ---------------- LOGIN ----------------
   Future<bool> signInWithEmailAndPassword(String email, String password) async {
@@ -121,4 +174,7 @@ class AuthService extends ChangeNotifier {
     currentDepartment = null;
     notifyListeners();
   }
+
+  // Check if user is already logged in (for persistent sessions)
+  bool get isLoggedIn => user != null;
 }
